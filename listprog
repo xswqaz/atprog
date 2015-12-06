@@ -1,0 +1,53 @@
+#!/bin/sh
+
+IFS='
+'
+
+for line in `atq | sort -k 3,5`
+do
+	ID=`echo $line | awk '{print $1}'`
+	MONTH=`echo $line | awk '{print $3}'`
+	DATE=`echo $line | awk '{print $4}'`
+	TIME=`echo $line | awk '{print $5}'`
+	STATUS=`echo $line | awk '{print $7}'`
+	TS=S
+
+	if [ "$STATUS" = "=" ]; then
+		STATUS=Recording
+	else 
+		STATUS="Ready    "
+	fi
+
+	CMD=`at -c $ID | grep recpt1`
+	TITLE=`echo $CMD | awk -F"_" '{print $5}' | awk -F.mp4 '{print $1}'`
+#	TITLE=`echo $CMD | awk -F"_" '{print $3}' | awk -F.ts '{print $1}'`
+	if [ `echo $CMD | grep sleep` ]; then
+	    DUR=`echo $CMD | awk '{print $9}'`
+	else 
+	    DUR=`echo $CMD | awk '{print $7}'`
+	fi
+	DUR=`expr $DUR / 60`
+	CH=`echo $CMD | awk '{print $6}'` 
+	if expr "$CH" : '[0-9]*' > /dev/null; then
+		if [ $CH -lt 100 ]; then
+			TS=T
+		fi
+	fi
+
+	if [ `echo $CMD | grep acd_cli` ]; then
+	    ACD=O
+	else
+	    ACD=X
+	fi
+
+	SPA=""
+	if [ $DUR -lt 100 ]; then
+		SPA=" "
+	fi
+	if [ $DUR -lt 10 ]; then
+		SPA="  "
+	fi
+
+	echo $ID $MONTH $DATE $TIME $DUR$SPA $STATUS $TS $ACD $TITLE 
+#	echo $ID $DATE $TIME $DUR$SPA $STATUS $TITLE 
+done
