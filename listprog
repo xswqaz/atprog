@@ -19,7 +19,7 @@ do
 	fi
 
 	CMD=`at -c $ID | grep recpt1`
-	TITLE=`echo $CMD | awk -F"_" '{print $5}' | awk -F.mp4 '{print $1}'`
+	TITLE=`echo $CMD | awk -F"_" '{print $6}' | awk -F.mp4 '{print $1}'`
 #	TITLE=`echo $CMD | awk -F"_" '{print $3}' | awk -F.ts '{print $1}'`
 	if [ `echo $CMD | grep sleep` ]; then
 	    DUR=`echo $CMD | awk '{print $9}'`
