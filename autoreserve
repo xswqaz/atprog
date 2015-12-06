@@ -1,0 +1,234 @@
+#!/usr/bin/perl
+
+use LWP::Simple;
+use LWP::UserAgent;
+use HTML::TreeBuilder;
+use HTTP::Request::Common qw(POST);
+#use Date::Simple;
+use File::Basename;
+use Time::Local;
+use Encode;
+use Time::Format qw(time_format time_strftime time_manip);
+
+my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime(time);  
+my $today = sprintf("%04d%02d%02d", $year + 1900, $mon + 1, $mday);
+
+#print $today."\n";
+
+#exit;
+
+#my $today = Date::Simple::today()->as_d8;
+
+
+my @url = ('http://tv.so-net.ne.jp/chart/23.action?head='.$today.'0100&span=24&iepgType=0', 'http://tv.so-net.ne.jp/chart/bs1.action?head='.$today.'0600&span=24&iepgType=0','http://tv.so-net.ne.jp/chart/bs2.action?head='.$today.'0600&span=24&iepgType=0','http://tv.so-net.ne.jp/chart/bs3.action?head='.$today.'0600&span=24&iepgType=0');
+#my @url = ('http://tv.so-net.ne.jp/chart/23.action?head='.$today.'0600&span=24&iepgType=0');
+my $host = 'http://tv.so-net.ne.jp';
+my $prog = '/root/tool/prog.txt';
+my $progbs = '/root/tool/progbs.txt';
+my @param;
+my $reccmd = "/root/tool/pt1-b14397800eae/recpt1/recpt1";
+my $recpath = "/tmp";
+
+open (FILE, $prog) or die "$!";
+while ( $line = <FILE>) {
+    push(@prog, $line);
+}
+close (FILE);
+
+open (FILE, $progbs) or die "$!";
+while ( $line = <FILE>) {
+    push(@progbs, $line);
+}
+close (FILE);
+
+
+%ch = (
+            "DFS00400"      =>      "14",
+            "DFS00408"      =>      "13",
+            "DFS00410"      =>      "12",
+            "DFS00428"      =>      "11",
+            "DFS00418"      =>      "9",
+            "DFS00430"      =>      "10",
+            "DFS00420"      =>      "8"
+      );
+
+%sid = (
+            "DFS00400"      =>      "1024",
+            "DFS00408"      =>      "1032",
+            "DFS00410"      =>      "1040",
+            "DFS00428"      =>      "1064",
+            "DFS00418"      =>      "1048",
+            "DFS00430"      =>      "1072",
+            "DFS00420"      =>      "1056",
+            "DFS05C38"      =>      "091",
+            "DFS00440"      =>      "121",
+
+            "BSDT101"       =>      "101",
+            "BSDT102"       =>      "102",
+            "BSDT103"       =>      "103",
+            "BSDT141"       =>      "141",
+            "BSDT151"       =>      "151",
+            "BSDT161"       =>      "161",
+            "BSDT171"       =>      "171",
+            "BSDT181"       =>      "181",
+            "BSDT191"       =>      "191",
+            "BSDT200"       =>      "200",
+            "BSDT211"       =>      "211",
+            "BSDT222"       =>      "222"
+      );
+
+foreach $value (@url) {
+    $tree = HTML::TreeBuilder->new;
+    $tree->parse(get($value));
+
+    my @lists = $tree->find_by_attribute("class","td-schedule");
+    foreach my $node (@lists) {
+        if ( defined $node->find_by_attribute("class","schedule-title") ) {
+            $title = $node->find_by_attribute("class","schedule-title")->as_text();
+        }
+        elsif ( defined $node->find_by_attribute("class","schedule-titleC") ) {
+            $title = $node->find_by_attribute("class","schedule-titleC")->as_text();
+        } else {
+            next;
+        }
+
+	$titleenc=encode("utf-8",$title);
+
+	if ( index($value,'bs') >= 0) {
+		@keylist=@progbs;
+	} else {
+		@keylist=@prog;
+	}
+
+       	foreach my $prog (@keylist) {
+            if ( index($titleenc,trim($prog)) >= 0 ) {
+		if (`/root/tool/listprog | grep "$titleenc"`) {
+		    next();
+		}	
+		if (index($titleenc,"再") >= 0) {
+		    next();
+		}		
+		print $titleenc."\n";
+	        my $a = $node->look_down(_tag => 'a' , class=> 'iepg');
+	            getstore($host.$a->attr('href'),"/tmp/iepg.tvpid");
+                    `/root/tool/atprog /tmp/iepg.tvpid`;
+            }
+        }
+
+#	print $titleenc,"\n";
+        
+#        for ($i=0; $i<@reserveprog; $i++) {
+#        foreach my $prog (@reserveprog) {
+#            if ( index($titleenc,trim($reserveprog[$i])) >= 0 ) {
+#            if ( index($titleenc,trim($prog)) >= 0 ) {
+#  	           my $a = $node->look_down(_tag => 'a' , class=> 'iepg');
+               
+#		   getstore($host.$a->attr('href'),"c:\\rec\\iepg.tvpid");
+#	           `c:\\rec\\recsche-local.cmd c:\\rec\\iepg.tvpid`;
+#            }
+#        }
+    }
+}
+
+
+#$output = `schtasks | findstr rec_`;
+#@lines = split(/\n/, $output);
+
+foreach $line (@lines) {
+	@columns = split(/\s+/, $line);
+	if ( $columns[1] eq "N/A" && $columns[2] eq "Ready" ) {
+		`schtasks /tn $columns[0] /delete /f`
+	}
+}
+
+    
+sub getparam {
+        my $res = $_[0];
+        foreach my $str (split (/\n/, $res)) {
+        if ( index($str,'station:') >=0 ) {
+            @token = split(/:/,$str);
+            $param[0] = trim($token[1]);
+        }
+        if ( index($str,"year") >=0 ) {
+            @token = split(/:/,$str);
+            $param[1] = trim($token[1]);
+        }
+        if ( index($str,"month") >=0 ) {
+            @token = split(/:/,$str);
+            $param[2] = trim($token[1]);
+        }
+        if ( index($str,"date") >=0 ) {
+            @token = split(/:/,$str);
+            $param[3] = trim($token[1]);
+        }
+        if ( index($str,"start") >=0 ) {
+            @token = split(/:/,$str);
+            $param[4] = trim($token[1]);
+            $param[5] = trim($token[2]);
+        }
+        if ( index($str,"end") >=0 ) {
+            @token = split(/:/,$str);
+            $param[6] = trim($token[1]);
+            $param[7] = trim($token[2]);
+#            $time = timelocal(0,$param[7],$param[6],$param[3],$param[2]-1,$param[1]-1900);
+#            ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime($time-60)
+;
+ #           $param[6] = $hour;
+ #           $param[7] = $min;
+        }
+        if ( index($str,"program-title") >=0 ) {
+            @token = split(/:/,$str);
+            $param[8] = trim($token[1]);
+        }
+#        if ( index($str,":") == -1 && length($str) != 0) {
+#            $param[9] = trim($str);
+#        }
+    }
+    return @param;
+}
+
+sub reserve {
+	my @data = @_;
+#	print $sid{$param[0]};
+
+
+	$endtime = timelocal(0,$param[7],$param[6],$param[3],$param[2]-1,$param[1]-1900);
+	$starttime = timelocal(0,$param[5],$param[4],$param[3],$param[2]-1,$param[1]-1900);
+	if ($endtime < $starttime) {
+		$endtime += 24*60*60;
+	}
+	$durtime = $endtime - $starttime;
+
+	$date = Date::Simple::ymd($param[1],$param[2],$param[3]);
+	$recdate = $date->format("%m/%d/%Y");
+	
+	$progid = $param[1].$param[2].$param[3]."_".$param[4].$param[5];
+	$strtime = $param[4].":".$param[5];
+	
+	$device = "BonDriver_PX_W3PE_T0.dll";
+	
+	$reccmd2 = $reccmd." /d ".$device." /ch ".$ch{$param[0]}." /sid ".$sid{$param[0]}." /recduration "
+				.$durtime." /recfile \\\"".$progid."_".$param[8].".ts\\\"";
+#	print $reccmd2,"\n";
+	
+	$tmp = "schtasks /create /ru Administrator /rp Psh19777 /sc once /st " 
+			.$strtime." /sd ".$recdate." /tr \"".$reccmd2."\" /tn rec_" 
+			.$progid;
+#	print $tmp,"\n";
+	system($tmp);
+	
+#	foreach $p (@param) {
+#		print $p,"\n";
+#	}
+}
+
+sub trim {
+    my @out = @_;
+    for (@out) {
+        s/^\s+//;
+        s/\s+$//;
+    }
+    return wantarray ? @out : $out[0];
+}
+
+    

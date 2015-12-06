@@ -1,0 +1,186 @@
+#!/bin/sh
+
+export LIBVA_DRIVER_NAME=iHD
+export LIBVA_DRIVER_PATH=/opt/intel/mediasdk/lib64
+export LIBVA_DRIVERS_PATH=/opt/intel/mediasdk/lib64
+export MFX_HOME=/opt/intel/mediasdk
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
+export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib64
+
+IFS=$'\n'
+RECPATH="recorded"
+
+SID=hd
+
+for line in `cat $1`
+do
+    line=`echo $line | sed 's/.$//'`
+    KEY=`echo $line | awk -F": " '{print $1}'`
+    VALUE=`echo $line | awk -F": " '{print $2}'`
+    if [ "$KEY" = "station" ]; then 
+	STA=$VALUE 
+    fi
+    if [ "$KEY" = "year" ]; then 
+	YEAR=$VALUE 
+    fi
+    if [ "$KEY" = "month" ]; then 
+	MONTH=$VALUE
+    fi
+    if [ "$KEY" = "date" ]; then 
+	DAY=$VALUE
+    fi
+    if [ "$KEY" = "start" ]; then 
+	ST=$VALUE
+    fi
+    if [ "$KEY" = "end" ]; then 
+	ET=$VALUE
+    fi
+    if [ "$KEY" = "program-title" ]; then 
+	PROG=`echo $VALUE | /usr/bin/iconv -f=sjis -t=utf8`
+    fi
+done
+
+echo "$PROG"
+
+if [ `echo "$PROG" |grep ベストセレクション` ]; then
+	exit	
+fi
+
+#if [ `/root/tool/listprog | grep "$PROG" | wc -l` -gt 0 ]; then
+#        exit
+#fi
+
+#if [ `ls /media/torrent/recorded/ | grep "$PROG" | wc -l` -gt 0 ]; then
+#        exit
+#fi
+
+#if [ `ls /media/torrent/recorded-jh/ | grep "$PROG" | wc -l` -gt 0 ]; then
+#	exit
+#fi
+
+STIME=`date +%s --date "$YEAR-$MONTH-$DAY $ST"`
+ETIME=`date +%s --date "$YEAR-$MONTH-$DAY $ET"`
+
+YMD=`echo $STIME | awk '{print strftime("%H:%M %m/%d/%Y",$1)}'`
+YMD2=`echo $STIME | awk '{print strftime("%Y%m%d_%H%M_",$1)}'`
+
+if [ $STIME -gt $ETIME ]; then
+    ETIME=$[$ETIME+86400]
+fi
+
+WID=1280
+HEI=720
+BR=2400k
+#BR=1200k
+
+DUR=`expr $ETIME - $STIME - 40`
+#DUR=`expr $ETIME - $STIME`
+
+if [ $STA = DFS00400 ]; then
+	CH=27
+fi
+if [ $STA = DFS00408 ]; then
+	CH=26
+fi
+if [ $STA = DFS00410 ]; then
+	CH=25
+fi
+if [ $STA = DFS00428 ]; then
+	CH=24
+fi
+if [ $STA = DFS00418 ]; then
+	CH=22
+fi
+if [ $STA = DFS00430 ]; then
+	CH=23
+fi
+if [ $STA = DFS00420 ]; then
+	CH=21
+fi
+if [ $STA = DFS05C38 ]; then
+	CH=20
+fi
+if [ $STA = CSDT330 ]; then
+	CH=CS12
+	SID=330
+fi
+if [ $STA = CSDT296 ]; then
+	CH=CS2
+	SID=296
+fi
+if [ $STA = CSDT325 ]; then
+	CH=CS12
+	SID=325
+fi
+if [ $STA = CSDT307 ]; then
+	CH=CS20
+	SID=307
+fi
+if [ $STA = CSDT308 ]; then
+	CH=CS20
+	SID=308
+fi
+if [ $STA = CSDT323 ]; then
+	CH=CS6
+	SID=323
+fi
+if [ $STA = CSDT223 ]; then
+	CH=CS4
+	SID=223
+fi
+if [ $STA = CSDT293 ]; then
+	CH=CS14
+	SID=293
+fi
+
+
+if [ $STA = CSDT321 ]; then
+	CH=CS24
+	SID=321
+	WID=720
+	HEI=480
+	BR=1200k
+fi
+
+
+if expr "$STA" : "BSDT*" >/dev/null; then
+	CH=`echo $STA | cut -c5-`
+fi
+
+if [ `echo $PROG | grep 'ポケ\|妖怪\|ドラえもん\|怪盗\|ゆっくり'` ]; then
+	RECPATH="joonha"
+fi
+
+if [ `echo $PROG | grep '再\|プレマップ\|天気予報'` ]; then
+	exit
+fi
+
+RECPT1="/root/tool/recpt1/recpt1/recpt1"
+FFMPEG="/root/tool/ffmpeg/ffmpeg"
+
+PROG=`echo ${PROG/\?/？}`
+PROG=`echo ${PROG/\//／}`
+PROG=`echo ${PROG/\:/：}`
+PROG=`echo ${PROG/\&/＆}`
+PROG=`echo ${PROG/\"/　}`
+PROG=`echo ${PROG/\“/　}`
+PROG=`echo ${PROG/>/＞}`
+PROG=`echo ${PROG/</＜}`
+PROG=`echo ${PROG/\“/　}`
+#PROG=`echo ${PROG/\#/＃}`
+
+RECTS=/mnt/hdd/$RECPATH/$YMD2"$PROG".ts.rec
+ENDTS=/mnt/hdd/$RECPATH/$YMD2"$PROG".ts
+RECMP4=/mnt/hdd/$RECPATH/$YMD2"$PROG".mp4.rec
+ENDMP4=/mnt/hdd/$RECPATH/$YMD2"$PROG".mp4
+
+if [ "$2" = "" ]; then
+	ACD_UPLOAD="&& /usr/local/bin/acd_cli upload \"$ENDMP4\" /Videos/$RECPATH/"
+fi
+
+echo "$RECPT1 --b25 --strip --sid $SID $CH $DUR - | $FFMPEG -y -i - -metadata creation_time=\"$YEAR-$MONTH-$DAY $ST:00\" -vcodec h264_qsv -b:v $BR -sar 16:9 -s $WID\\x$HEI -acodec copy -absf aac_adtstoasc -bufsize 20000k -maxrate 25000k -movflags faststart -f mp4 \"$RECMP4\" && mv \"$RECMP4\" \"$ENDMP4\" $ACD_UPLOAD > /dev/null 2>&1" | at $YMD
+
+#echo "export LIBVA_DRIVER_NAME=iHD && $RECPT1 --b25 --strip --sid $SID $CH $DUR - | $FFMPEG -y -i - -vcodec h264_qsv -b:v $BR -sar 16:9 -s $WID\\x$HEI -acodec copy -absf aac_adtstoasc -bufsize 20000k -maxrate 25000k -movflags faststart -f mp4 \"$RECMP4\" && mv \"$RECMP4\" \"$ENDMP4\" > /dev/null 2>&1" | at $YMD
+
+rm $1
+
