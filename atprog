@@ -175,7 +175,7 @@ RECMP4=/mnt/hdd/$RECPATH/$YMD2"$PROG".mp4.rec
 ENDMP4=/mnt/hdd/$RECPATH/$YMD2"$PROG".mp4
 
 if [ "$2" = "" ]; then
-	ACD_UPLOAD="&& /usr/local/bin/acd_cli upload \"$ENDMP4\" /Videos/$RECPATH/"
+	ACD_UPLOAD="&& /usr/local/bin/acd_cli upload -x 3 \"$ENDMP4\" /Videos/$RECPATH/"
 fi
 
 echo "$RECPT1 --b25 --strip --sid $SID $CH $DUR - | $FFMPEG -y -i - -metadata creation_time=\"\$(date --utc +'%F%T')\" -vcodec h264_qsv -b:v $BR -sar 16:9 -s $WID\\x$HEI -acodec copy -absf aac_adtstoasc -bufsize 20000k -maxrate 25000k -movflags faststart -f mp4 \"$RECMP4\" && mv \"$RECMP4\" \"$ENDMP4\" $ACD_UPLOAD > /dev/null 2>&1" | at $YMD
