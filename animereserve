@@ -1,0 +1,62 @@
+#!/usr/bin/perl
+
+use LWP::Simple;
+use LWP::UserAgent;
+use HTML::TreeBuilder;
+use HTTP::Request::Common qw(POST);
+#use Date::Simple;
+use File::Basename;
+use Time::Local;
+use Encode;
+use Time::Format qw(time_format time_strftime time_manip);
+
+my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime(time);  
+my $today = sprintf("%04d%02d%02d", $year + 1900, $mon + 1, $mday);
+
+my $year = sprintf("%04d", $year + 1900);
+my $month = sprintf("%02d", $mon + 1);
+
+if ( $month eq "12" ) {
+#if ( $month eq "02" ) {
+    $quarter = "q1";
+    $year+=1;
+} 
+if ( $month eq "03" ) {
+    $quarter = "q2";
+}
+if ( $month eq "06" ) {
+    $quarter = "q3";
+}
+if ( $month eq "09" ) {
+    $quarter = "q4";
+}
+
+if ( "$quarter" eq "" ) {
+    print "no quarter\n";
+    exit 1;
+}
+
+my $host = 'http://cal.syoboi.jp';
+my $anime = '/root/tool/anime.txt';
+
+my $url = $host."/quarter/".$year.$quarter;
+
+if (-e $anime) {
+    print "file exists\n";
+    unlink $anime; 
+}
+
+$tree = HTML::TreeBuilder->new;
+$tree->parse(get($url));
+
+my @lists = $tree->find_by_attribute("class","title");
+
+
+open (FILE, ">", $anime) or die "$!";
+
+foreach my $node (@lists) {
+    print FILE $node->as_text()."\n";
+}
+
+close (FILE);
+

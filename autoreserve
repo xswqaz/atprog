@@ -25,11 +25,18 @@ my @url = ('http://tv.so-net.ne.jp/chart/23.action?head='.$today.'0100&span=24&i
 my $host = 'http://tv.so-net.ne.jp';
 my $prog = '/root/tool/prog.txt';
 my $progbs = '/root/tool/progbs.txt';
+my $anime = '/root/tool/anime.txt';
 my @param;
 my $reccmd = "/root/tool/pt1-b14397800eae/recpt1/recpt1";
 my $recpath = "/tmp";
 
 open (FILE, $prog) or die "$!";
+while ( $line = <FILE>) {
+    push(@prog, $line);
+}
+close (FILE);
+
+open (FILE, $anime) or die "$!";
 while ( $line = <FILE>) {
     push(@prog, $line);
 }
