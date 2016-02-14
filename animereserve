@@ -54,9 +54,13 @@ my @lists = $tree->find_by_attribute("class","title");
 
 open (FILE, ">", $anime) or die "$!";
 
+my $spc = decode('utf-8', '　');
+
 foreach my $node (@lists) {
-    print FILE $node->as_text()."\n";
+    @kwd = split (/\(/, $node->as_text());
+    $kwd[0] =~ s/ /$spc/g;
+    print FILE $kwd[0]."\n";
 }
 
-close (FILE);
+#close (FILE);
 
