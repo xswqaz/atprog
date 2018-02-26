@@ -1,0 +1,17 @@
+#!/bin/sh
+
+TMP=/usr/share/nginx/html/tmp.xml
+EPG=/usr/share/nginx/html/epg.xml
+
+echo "<?xml version=1.0 encoding=UTF-8?>
+<!DOCTYPE tv SYSTEM xmltv.dtd>
+
+<tv generator-info-name=\"tsEPG2xml\" generator-info-url=\"http://localhost/\">" > $EPG
+
+for i in 27 26; do
+  /root/recpt1/recpt1/recpt1 --b25 --strip $i 10 - | /root/tool/epgdump/epgdump - $TMP
+  cat $TMP | tail -n +5 | head -n -1 >> $EPG
+  sleep 10
+done
+
+echo "</tv>" >> $EPG
